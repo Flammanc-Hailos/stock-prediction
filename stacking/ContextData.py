@@ -38,10 +38,19 @@ class ContextData:
 
         self.data = data_filled
 
+    def _bars_per_day(self):
+        bars = {
+            '1d': 1, '1h': 7, '30m': 13, '15m': 26,
+            '5m': 78, '2m': 195, '1m': 390
+        }
+        return bars.get(self.interval, 1)
+
     def compute_features(self):
+        bpd = self._bars_per_day()
+
         # EMA
-        self.data['EMA12'] = self.data['Close'].ewm(span=math.ceil(12*6.5*60)).mean() # 12 days * 6.5 hours per day * min per hour
-        self.data['EMA26'] = self.data['Close'].ewm(span=math.ceil(26*6.5*60)).mean()
+        self.data['EMA12'] = self.data['Close'].ewm(span=math.ceil(12 * bpd)).mean()
+        self.data['EMA26'] = self.data['Close'].ewm(span=math.ceil(26 * bpd)).mean()
 
         # MACD
         self.data['MACD'] = self.data['EMA12'] + self.data['EMA26']
@@ -51,8 +60,8 @@ class ContextData:
 
         #RSI
         delta = self.data['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=math.ceil(14*6.5*60)).mean() # 14 days * 6.5 hours per day * min per hour
-        loss = (-delta.where(delta < 0, 0)).rolling(window=math.ceil(14*6.5*60)).mean()
+        gain = (delta.where(delta > 0, 0)).rolling(window=math.ceil(14 * bpd)).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=math.ceil(14 * bpd)).mean()
         relative_strength = gain / loss
         self.data['RSI'] = 100 - (100 / (1 + relative_strength))
 
