@@ -25,7 +25,7 @@ class StrategyAlphaVantage(StrategyData):
                 querystring = {
                             "function": f"TIME_SERIES_INTRADAY",
                             "symbol": ticker,
-                            "interval": {self.translate_interval(interval)},
+                            "interval": self.translate_interval(interval),
                             "apikey": api_key['alpha_vantage'],
                             "outputsize": "full"
                             }
@@ -48,7 +48,7 @@ class StrategyAlphaVantage(StrategyData):
 
                 return self.filter_data_by_date(df, days=days)
             else:
-                raise(ValueError, "Data hasn't been downloaded")
+                raise ValueError("Data hasn't been downloaded")
             
     def filter_data_by_date(self, df, days):
         # Convert start and end date to datetime objects
@@ -56,7 +56,7 @@ class StrategyAlphaVantage(StrategyData):
         end = pd.to_datetime(datetime.datetime.now())
 
         # Filter the DataFrame by the date range
-        filtered_df = df.loc[end:start]
+        filtered_df = df.loc[start:end]
 
         return filtered_df
     

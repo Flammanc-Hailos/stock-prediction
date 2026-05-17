@@ -2,6 +2,7 @@ from StrategyData import StrategyData
 
 import datetime
 import pandas as pd
+import numpy as np
 import os
 import math
 
@@ -53,7 +54,7 @@ class ContextData:
         self.data['EMA26'] = self.data['Close'].ewm(span=math.ceil(26 * bpd)).mean()
 
         # MACD
-        self.data['MACD'] = self.data['EMA12'] + self.data['EMA26']
+        self.data['MACD'] = self.data['EMA12'] - self.data['EMA26']
 
         # MACD signal
         self.data['MACD_signal'] = self.data['MACD'].ewm(span=9).mean()
@@ -62,8 +63,8 @@ class ContextData:
         delta = self.data['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=math.ceil(14 * bpd)).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=math.ceil(14 * bpd)).mean()
-        relative_strength = gain / loss
-        self.data['RSI'] = 100 - (100 / (1 + relative_strength))
+        rs = gain / loss.replace(0, np.nan)
+        self.data['RSI'] = (100 - (100 / (1 + rs))).fillna(100.0)
 
         # Price change
         self.data['price_change'] = self.data['Close'].pct_change()

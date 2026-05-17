@@ -1,5 +1,4 @@
 import pandas as pd
-from joblib import parallel_backend
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -70,13 +69,12 @@ class StackingModel:
                 y,
                 cv=tss,
                 scoring=scoring[score],
-                n_jobs=-1
+                n_jobs=1
             )
             scores[score] = cv_scores
 
         # Train Stacking Model
-        with parallel_backend('threading'):
-            pipeline.fit(x, y)
+        pipeline.fit(x, y)
         
         return pipeline, scores
 
@@ -125,12 +123,11 @@ class StackingModel:
             raise ValueError(f"Interval mapping not found for the specified interval: {self.interval}")
 
 
-    def next_closing(self, model, scaler, steps=1):
+    def next_closing(self, model, steps=1):
         """Predicts the closing price at future intervals.
 
         Parameters:
-        - model: Trained model for prediction
-        - scaler: StandardScaler object for data scaling
+        - model: Trained pipeline (scaler + stacking) for prediction
         - steps (int): Number of future intervals to predict. Defaults to 1 step
 
         Returns:
@@ -138,23 +135,22 @@ class StackingModel:
         - predicted_closing_price (float): Predicted closing price at the last future interval
         """
         print('> Calculating next closing price')
-        most_recent = pd.DataFrame([self.data.iloc[-1][['EMA12', 'EMA26', 'MACD', 'MACD_signal', 'price_change', 'previous_close', 'Close_lag1', 'Close_lag2', 'Close_lag3']]])
-        most_recent_scaled = pd.DataFrame(scaler.transform(most_recent), columns=most_recent.columns)
+        lag_cols = ['EMA12', 'EMA26', 'MACD', 'MACD_signal', 'price_change', 'previous_close', 'Close_lag1', 'Close_lag2', 'Close_lag3']
+        most_recent = pd.DataFrame([self.data.iloc[-1][lag_cols]])
 
         future_timestamps = [self.data.index[-1] + self.timedelta_interval()]
         future_data = []
 
         for _ in range(steps):
-            prediction = model.predict(most_recent_scaled)
+            prediction = model.predict(most_recent)
             future_data.append(prediction[0])
 
-            # Update the future timestamps
             future_timestamps.append(future_timestamps[-1] + self.timedelta_interval())
 
-            # Update the scaled data with the new prediction
-            most_recent_scaled.iloc[0, -1] = prediction  # Update 'Close_lag1'
-            most_recent_scaled.iloc[0, -2] = most_recent_scaled.iloc[0, -1]  # Update 'Close_lag2'
-            most_recent_scaled.iloc[0, -3] = most_recent_scaled.iloc[0, -2]  # Update 'Close_lag3'
+            # Shift lags: lag3 <- lag2, lag2 <- lag1, lag1 <- new prediction
+            most_recent['Close_lag3'] = most_recent['Close_lag2'].values
+            most_recent['Close_lag2'] = most_recent['Close_lag1'].values
+            most_recent['Close_lag1'] = prediction[0]
 
         return future_timestamps[1:], future_data[-1]
         
@@ -167,7 +163,7 @@ class StackingModel:
         model, cv_scores = self.train_model(x, y)
 
         # Inference
-        prediction_time, predicted_price = self.next_closing(model, model.named_steps['scaler'], steps=1)
+        prediction_time, predicted_price = self.next_closing(model, steps=1)
 
         scores = dict()
 

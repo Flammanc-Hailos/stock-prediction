@@ -17,7 +17,7 @@ class StrategyFinazon(StrategyData):
             api_key = yaml.safe_load(file)
             while True:
                 querystring = {"ticker":f"{ticker}",
-                            "interval":{interval},
+                            "interval": interval,
                             "page":f"{i}",
                             "page_size":"1000",
                             "adjust":"all",
