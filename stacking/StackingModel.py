@@ -2,9 +2,8 @@ import pandas as pd
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import TimeSeriesSplit, train_test_split
+from sklearn.model_selection import TimeSeriesSplit, train_test_split, cross_validate
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, root_mean_squared_error, r2_score, make_scorer
-from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import StackingRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -34,7 +33,7 @@ class StackingModel:
             ('rf', RandomForestRegressor(n_estimators=100, n_jobs=-1)),
             ('bag', BaggingRegressor(estimator=LinearSVR(max_iter=1000000), n_estimators=100, n_jobs=-1)),
             ('ada', AdaBoostRegressor(n_estimators=100)),
-            ('xgb', XGBRegressor(n_estimators=100, n_jobs=-1))
+            ('xgb', XGBRegressor(n_estimators=100, device='cuda'))
         ]
         self.final_estimator = final_estimator or LinearRegression()
         print(self.data)
@@ -60,18 +59,8 @@ class StackingModel:
         
         tss = TimeSeriesSplit(n_splits=5)
 
-        scores = dict()
-
-        for score in scoring:
-            cv_scores = cross_val_score(
-                pipeline,
-                x,
-                y,
-                cv=tss,
-                scoring=scoring[score],
-                n_jobs=1
-            )
-            scores[score] = cv_scores
+        cv_results = cross_validate(pipeline, x, y, cv=tss, scoring=scoring, n_jobs=1)
+        scores = {name: cv_results[f'test_{name}'] for name in scoring}
 
         # Train Stacking Model
         pipeline.fit(x, y)

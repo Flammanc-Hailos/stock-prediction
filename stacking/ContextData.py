@@ -20,7 +20,7 @@ class ContextData:
         self.delete_outliers()
 
     def read_csv(self):
-        return pd.read_csv(f'stock_data\\{self.ticker}.csv', index_col='Datetime', parse_dates=True)
+        return pd.read_csv(os.path.join('stock_data', f'{self.ticker}.csv'), index_col='Datetime', parse_dates=True)
 
     def write_csv(self):
         outdir = "stock_data"
@@ -91,10 +91,7 @@ class ContextData:
 
         """
         # 3 Standard Deviations away from mean
-        upper_bound = self.data['price_change'].mean() + 3 * self.data['price_change'].std()
-        lower_bound = self.data['price_change'].mean() - 3 * self.data['price_change'].std()
-        
-        self.data = self.data[self.data['price_change'] < upper_bound]
-        self.data = self.data[self.data['price_change'] > lower_bound]
+        mean, std = self.data['price_change'].mean(), self.data['price_change'].std()
+        self.data = self.data[self.data['price_change'].between(mean - 3 * std, mean + 3 * std)]
 
         # self.handle_missing_date()
