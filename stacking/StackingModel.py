@@ -1,3 +1,4 @@
+import subprocess
 import pandas as pd
 
 from sklearn.pipeline import Pipeline
@@ -12,6 +13,16 @@ from sklearn.ensemble import BaggingRegressor
 from sklearn.svm import SVR, LinearSVR
 from xgboost import XGBRegressor
 import numpy as np
+
+def _detect_cuda() -> bool:
+    try:
+        return subprocess.run(['nvidia-smi', '-L'], capture_output=True, timeout=5).returncode == 0
+    except Exception:
+        return False
+
+_CUDA_AVAILABLE = _detect_cuda()
+_XGB_DEVICE = 'cuda' if _CUDA_AVAILABLE else 'cpu'
+print(f"CUDA Available: {_CUDA_AVAILABLE}")
 
 class StackingModel:
     """
@@ -30,10 +41,19 @@ class StackingModel:
         self.data = data
         self.interval = interval
         self.estimators = estimators or [
-            ('rf', RandomForestRegressor(n_estimators=100, n_jobs=-1)),
-            ('bag', BaggingRegressor(estimator=LinearSVR(max_iter=1000000), n_estimators=100, n_jobs=-1)),
+            ('rf', RandomForestRegressor(n_estimators=200, n_jobs=-1)),
+            ('bag', BaggingRegressor(estimator=LinearSVR(max_iter=100000), n_estimators=100, n_jobs=-1)),
             ('ada', AdaBoostRegressor(n_estimators=100)),
-            ('xgb', XGBRegressor(n_estimators=100, device='cuda'))
+            ('xgb', XGBRegressor(
+                n_estimators=300,
+                device=_XGB_DEVICE,
+                tree_method='hist',
+                learning_rate=0.05,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                max_depth=6,
+                n_jobs=1,
+            ))
         ]
         self.final_estimator = final_estimator or LinearRegression()
         print(self.data)
@@ -70,14 +90,17 @@ class StackingModel:
     def data_preprocessing(self):
         print('> Processing data', end='\r')
         # Create lagged features for time series
-        self.data['Close_lag1'] = self.data['Close'].shift(1)
-        self.data['Close_lag2'] = self.data['Close'].shift(2)
-        self.data['Close_lag3'] = self.data['Close'].shift(3)
+        close = self.data['Close']
+        self.data = self.data.assign(
+            Close_lag1=close.shift(1),
+            Close_lag2=close.shift(2),
+            Close_lag3=close.shift(3),
+        )
         self.data.dropna(inplace=True)
 
-        # Define features and target
-        x = self.data[['EMA12', 'EMA26', 'MACD', 'MACD_signal', 'price_change', 'previous_close', 'Close_lag1', 'Close_lag2', 'Close_lag3']]
-        y = self.data['Close']
+        feature_cols = ['EMA12', 'EMA26', 'MACD', 'MACD_signal', 'price_change', 'previous_close', 'Close_lag1', 'Close_lag2', 'Close_lag3']
+        x = self.data[feature_cols].astype('float32')
+        y = self.data['Close'].astype('float32')
         return x, y
 
     def scale_data(self, x_train, x_test, scaler):
