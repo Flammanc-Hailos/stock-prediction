@@ -33,7 +33,7 @@ def plot_price_change_distrubution(context):
 
 def main():
     print('>Fetching data')
-    context = ContextData(ticker="SPY", strategy=StrategyAlpaca(), days=40, interval="1m", market_hours_only=False)
+    context = ContextData(ticker="SPY", strategy=StrategyAlpaca(), days=20, interval="1m", market_hours_only=False)
     context.write_csv()
     start_time = time.time()
 
@@ -66,6 +66,6 @@ if __name__ == "__main__":
 
     main()
 
-    while True:
-        input("> Press key to exit")
-        break
+    # while True:
+    #     input("> Press key to exit")
+    #     break

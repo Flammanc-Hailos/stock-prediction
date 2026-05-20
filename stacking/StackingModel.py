@@ -26,7 +26,10 @@ print(f"CUDA Available: {_CUDA_AVAILABLE}")
 
 class StackingModel:
     """
-    
+    StackingModel implements a stacking ensemble regression model for stock price prediction.
+    It combines multiple base regressors (Random Forest, Bagging with LinearSVR, AdaBoost, and XGBoost)
+    and uses a Linear Regression as the final estimator to predict the closing price of a stock
+    at the next interval based on historical data and engineered features.
     """
 
     def __init__(self, data, interval, estimators=None, final_estimator=None):
@@ -41,18 +44,18 @@ class StackingModel:
         self.data = data
         self.interval = interval
         self.estimators = estimators or [
-            ('rf', RandomForestRegressor(n_estimators=200, n_jobs=-1)),
+            ('rf', RandomForestRegressor(n_estimators=100, n_jobs=-1)),
             ('bag', BaggingRegressor(estimator=LinearSVR(max_iter=100000), n_estimators=100, n_jobs=-1)),
             ('ada', AdaBoostRegressor(n_estimators=100)),
             ('xgb', XGBRegressor(
-                n_estimators=300,
+                n_estimators=100,
                 device=_XGB_DEVICE,
                 tree_method='hist',
                 learning_rate=0.05,
                 subsample=0.8,
                 colsample_bytree=0.8,
                 max_depth=6,
-                n_jobs=1,
+                n_jobs=-1,
             ))
         ]
         self.final_estimator = final_estimator or LinearRegression()
